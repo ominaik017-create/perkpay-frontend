@@ -86,7 +86,7 @@ export default function Scan() {
         order_id: data.razorpayOrderId,
         amount: data.amountPaise,
         currency: 'INR',
-        name: 'PerkPay',
+        name: order.shopName || 'PerkPay',
         description: `Payment to ${order.shopName}`,
         theme: { color: '#5B3FE0' },
         // Bias the checkout toward UPI. On a real phone in LIVE mode this
