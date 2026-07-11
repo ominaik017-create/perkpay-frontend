@@ -73,24 +73,6 @@ export default function Scan() {
     try {
       const data = await api.lockAmount(order.orderId, applyRewards);
 
-      // If backend returned a direct UPI instruction (shop has a UPI ID but
-      // no Razorpay Route account), open the native UPI app with the
-      // shop's VPA so the payer can complete the payment directly.
-      if (data.directUpi) {
-        const upi = data.upiId;
-        const amount = (data.amountPaise / 100).toFixed(2);
-        const payee = encodeURIComponent(order.shopName || 'Merchant');
-        const note = encodeURIComponent(`Payment to ${order.shopName} (${order.orderId})`);
-        const upiUrl = `upi://pay?pa=${encodeURIComponent(upi)}&pn=${payee}&am=${amount}&cu=INR&tn=${note}`;
-        // Trigger app-chooser / intent on mobile.
-        window.location.href = upiUrl;
-        // Move to waiting phase and poll for manual confirmation (shopkeeper
-        // may mark the txn received using the safety-net endpoint).
-        setPhase('waiting');
-        startPolling(order.orderId);
-        return;
-      }
-
       // Fully paid with reward points — no gateway needed at all.
       if (data.success) {
         await refreshUser();
