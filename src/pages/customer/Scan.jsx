@@ -91,10 +91,10 @@ export default function Scan() {
         theme: { color: '#5B3FE0' },
         prefill: { email: user?.email || '', contact: '' },
         notes: { order_id: order.orderId, shop_id: order.shopId },
-        // In Razorpay test mode, forcing the UPI app-switch flow often leads
-        // to confusing Google Pay / bank-limit errors. Let Razorpay use its
-        // default selector instead, so the test payment can be completed with
-        // the built-in UPI test flow (success@razorpay / failure@razorpay).
+        // In Razorpay test mode, the UPI app-switch path often leads to
+        // confusing Google Pay / bank-limit errors. Restrict the checkout to
+        // the test-safe card flow so the payment can be completed reliably.
+        method: { card: true, upi: false, netbanking: false, wallet: false },
         handler: () => {
           // Razorpay confirms payment client-side here, but the webhook
           // is the real source of truth — poll our own status endpoint
