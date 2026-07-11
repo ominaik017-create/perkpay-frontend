@@ -86,21 +86,15 @@ export default function Scan() {
         order_id: data.razorpayOrderId,
         amount: data.amountPaise,
         currency: 'INR',
-        name: order.shopName || 'PerkPay',
-        description: `Payment to ${order.shopName}`,
+        name: 'PerkPay Test Merchant',
+        description: 'Test payment for PerkPay',
         theme: { color: '#5B3FE0' },
-        // Bias the checkout toward UPI. On a real phone in LIVE mode this
-        // is what triggers the native app-chooser (GPay/PhonePe/etc.) with
-        // the amount pre-filled — same as Zomato/Swiggy. In TEST mode,
-        // Razorpay can't validate a real app-switch (no real bank rails
-        // behind a test transaction), so it falls back to its own test UI
-        // where you type success@razorpay / failure@razorpay manually —
-        // that's expected, not a bug. We intentionally do NOT force-disable
-        // Razorpay's default blocks here (an earlier version did, via
-        // config.display.preferences.show_default_blocks: false) — that
-        // was too aggressive and could render a blank checkout instead of
-        // falling back gracefully.
-        method: { upi: true },
+        prefill: { email: user?.email || '', contact: '' },
+        notes: { order_id: order.orderId, shop_id: order.shopId },
+        // In Razorpay test mode, forcing the UPI app-switch flow often leads
+        // to confusing Google Pay / bank-limit errors. Let Razorpay use its
+        // default selector instead, so the test payment can be completed with
+        // the built-in UPI test flow (success@razorpay / failure@razorpay).
         handler: () => {
           // Razorpay confirms payment client-side here, but the webhook
           // is the real source of truth — poll our own status endpoint

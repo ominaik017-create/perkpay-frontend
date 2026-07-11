@@ -42,7 +42,9 @@ export default function ShopkeeperHome() {
           setStatus('idle');
           setQr(null);
         }
-      } catch (_) {}
+      } catch (_) {
+        // Keep polling; the server may still be resolving the order state.
+      }
     }, 2500);
   }
 
