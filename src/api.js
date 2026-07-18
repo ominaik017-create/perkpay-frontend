@@ -1,4 +1,7 @@
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
+const API_BASE = import.meta.env.VITE_API_BASE || 
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:4000'
+    : `http://${window.location.hostname}:4000`);
 
 function getToken() {
   return localStorage.getItem('perkpay_token');
@@ -70,6 +73,8 @@ export const api = {
   // admin
   listShopkeepers: () => request('/api/admin/shopkeepers'),
   createShopkeeper: (payload) => request('/api/admin/shopkeepers', { method: 'POST', body: payload }),
+  updateShopkeeper: (id, payload) => request(`/api/admin/shopkeepers/${id}`, { method: 'PATCH', body: payload }),
+  deleteShopkeeper: (id) => request(`/api/admin/shopkeepers/${id}`, { method: 'DELETE' }),
   listUsers: (role) => request(`/api/admin/users${role ? `?role=${role}` : ''}`),
   allTransactions: () => request('/api/admin/transactions'),
   listPayouts: () => request('/api/admin/payouts'),

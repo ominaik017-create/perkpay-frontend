@@ -50,8 +50,10 @@ export default function Scan() {
         await safeStop();
         handleScanned(decodedText.trim());
       },
-      () => {} // ignore per-frame scan failures
-    ).catch(() => setError('Camera access denied. Enable camera permissions to scan.'));
+    ).catch(() => {
+      setError('Camera access denied. Enable camera permissions to scan.');
+      setPhase('error');
+    });
 
     return () => { safeStop(); };
   }, [phase]);
@@ -91,10 +93,6 @@ export default function Scan() {
         theme: { color: '#5B3FE0' },
         prefill: { email: user?.email || '', contact: '' },
         notes: { order_id: order.orderId, shop_id: order.shopId },
-        // In Razorpay test mode, the UPI app-switch path often leads to
-        // confusing Google Pay / bank-limit errors. Restrict the checkout to
-        // the test-safe card flow so the payment can be completed reliably.
-        method: { card: true, upi: false, netbanking: false, wallet: false },
         handler: () => {
           // Razorpay confirms payment client-side here, but the webhook
           // is the real source of truth — poll our own status endpoint

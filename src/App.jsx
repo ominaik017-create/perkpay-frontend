@@ -12,6 +12,7 @@ import Rewards from './pages/customer/Rewards';
 import Profile from './pages/customer/Profile';
 import ShopkeeperShell from './pages/shopkeeper/ShopkeeperShell';
 import AdminShell from './pages/admin/AdminShell';
+import NotFound from './pages/NotFound';
 
 function Protected({ role, children }) {
   const { user, loading } = useAuth();
@@ -55,7 +56,7 @@ function AppRoutes() {
       {/* Admin */}
       <Route path="/admin" element={<Protected role="admin"><AdminShell /></Protected>} />
 
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }

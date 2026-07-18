@@ -2,6 +2,37 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../../AuthContext';
 import { api } from '../../api';
 
+const editBtnStyle = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: '6px 12px',
+  borderRadius: '8px',
+  border: '1px solid var(--border)',
+  background: 'var(--bg)',
+  color: 'var(--text-muted)',
+  fontSize: '12px',
+  fontWeight: '600',
+  cursor: 'pointer',
+  transition: 'all 0.12s ease',
+};
+
+const deleteBtnStyle = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: '6px 12px',
+  borderRadius: '8px',
+  border: '1px solid #FADBD8',
+  background: '#FDEDEC',
+  color: 'var(--danger)',
+  fontSize: '12px',
+  fontWeight: '600',
+  cursor: 'pointer',
+  transition: 'all 0.12s ease',
+};
+
+
 export default function AdminShell() {
   const { user, logout } = useAuth();
   const [tab, setTab] = useState('shops'); // shops | shopkeepers | payouts
@@ -163,13 +194,23 @@ function ShopsPanel() {
 
       <h3 style={{ fontSize: 15, marginTop: 24, marginBottom: 10 }}>All shops ({shops.length})</h3>
       {shops.map((s) => (
-        <ShopCard key={s.id} shop={s} onChanged={load} />
+        <ShopCard key={s.id} shop={s} shopkeepers={shopkeepers} onChanged={load} />
       ))}
     </>
   );
 }
 
-function ShopCard({ shop: s, onChanged }) {
+function ShopCard({ shop: s, shopkeepers, onChanged }) {
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: s.name, address: s.address, lat: s.lat, lng: s.lng,
+    category: s.category, earn_points_per_100: s.earn_points_per_100,
+    redeem_points_per_rupee: s.redeem_points_per_rupee,
+    owner_id: s.owner_id || '', upi_id: s.upi_id || ''
+  });
+  const [editError, setEditError] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
+
   const [expanded, setExpanded] = useState(false);
   const [routeForm, setRouteForm] = useState({
     legalBusinessName: '', businessType: 'individual', email: '', phone: '',
@@ -211,6 +252,43 @@ function ShopCard({ shop: s, onChanged }) {
     }
   }
 
+  async function handleDelete() {
+    if (!confirm(`Are you sure you want to delete the shop "${s.name}"? This action cannot be undone.`)) return;
+    try {
+      await api.deleteShop(s.id);
+      onChanged();
+    } catch (err) {
+      alert(err.message);
+    }
+  }
+
+  function updateEdit(field, value) { setEditForm((f) => ({ ...f, [field]: value })); }
+
+  async function handleSaveEdit(e) {
+    e.preventDefault();
+    setEditError('');
+    setEditSaving(true);
+    try {
+      await api.updateShop(s.id, {
+        name: editForm.name,
+        address: editForm.address,
+        lat: parseFloat(editForm.lat),
+        lng: parseFloat(editForm.lng),
+        category: editForm.category,
+        earn_points_per_100: parseInt(editForm.earn_points_per_100, 10),
+        redeem_points_per_rupee: parseInt(editForm.redeem_points_per_rupee, 10),
+        owner_id: editForm.owner_id || null,
+        upi_id: editForm.upi_id || null,
+      });
+      setEditing(false);
+      onChanged();
+    } catch (err) {
+      setEditError(err.message);
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
   const routeBadge = {
     not_created: { label: 'Pooled account (no Route)', color: 'var(--text-faint)' },
     created: { label: 'Route: pending activation', color: 'var(--warning)' },
@@ -218,17 +296,103 @@ function ShopCard({ shop: s, onChanged }) {
     needs_clarification: { label: 'Route: needs info', color: 'var(--danger)' },
   }[s.razorpay_account_status || 'not_created'];
 
+  if (editing) {
+    return (
+      <form onSubmit={handleSaveEdit} className="card" style={{ padding: 18, marginBottom: 8 }}>
+        <p style={{ fontWeight: 700, marginBottom: 12 }}>Edit shop</p>
+
+        <label className="label">Shop name</label>
+        <input className="input" required value={editForm.name} onChange={(e) => updateEdit('name', e.target.value)} style={{ marginBottom: 10 }} />
+
+        <label className="label">Address</label>
+        <input className="input" required value={editForm.address} onChange={(e) => updateEdit('address', e.target.value)} style={{ marginBottom: 10 }} />
+
+        <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
+          <div style={{ flex: 1 }}>
+            <label className="label">Latitude</label>
+            <input className="input" required type="number" step="any" value={editForm.lat} onChange={(e) => updateEdit('lat', e.target.value)} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label className="label">Longitude</label>
+            <input className="input" required type="number" step="any" value={editForm.lng} onChange={(e) => updateEdit('lng', e.target.value)} />
+          </div>
+        </div>
+
+        <label className="label">Category</label>
+        <select className="input" value={editForm.category} onChange={(e) => updateEdit('category', e.target.value)} style={{ marginBottom: 10 }}>
+          <option value="cafe">Cafe</option>
+          <option value="restaurant">Restaurant</option>
+          <option value="salon">Salon</option>
+          <option value="other">Other</option>
+        </select>
+
+        <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
+          <div style={{ flex: 1 }}>
+            <label className="label">Earn pts / ₹100</label>
+            <input className="input" required type="number" value={editForm.earn_points_per_100} onChange={(e) => updateEdit('earn_points_per_100', e.target.value)} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label className="label">Pts to redeem ₹1</label>
+            <input className="input" required type="number" value={editForm.redeem_points_per_rupee} onChange={(e) => updateEdit('redeem_points_per_rupee', e.target.value)} />
+          </div>
+        </div>
+
+        <label className="label">Shopkeeper's UPI ID</label>
+        <input className="input" value={editForm.upi_id} onChange={(e) => updateEdit('upi_id', e.target.value)} style={{ marginBottom: 10 }} />
+
+        <label className="label">Assign shopkeeper (owner)</label>
+        <select className="input" value={editForm.owner_id} onChange={(e) => updateEdit('owner_id', e.target.value)} style={{ marginBottom: 10 }}>
+          <option value="">— None yet —</option>
+          {shopkeepers.map((sk) => (
+            <option key={sk.id} value={sk.id}>{sk.name} ({sk.email})</option>
+          ))}
+        </select>
+
+        {editError && <p className="error-text">{editError}</p>}
+        <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+          <button className="btn btn-primary" style={{ flex: 1, padding: '8px 12px', fontSize: 13 }} disabled={editSaving}>
+            {editSaving ? 'Saving…' : 'Save'}
+          </button>
+          <button type="button" className="btn btn-ghost" style={{ padding: '8px 12px', fontSize: 13 }} onClick={() => setEditing(false)}>
+            Cancel
+          </button>
+        </div>
+      </form>
+    );
+  }
+
   return (
     <div className="card" style={{ padding: 14, marginBottom: 8 }}>
-      <p style={{ fontWeight: 600, fontSize: 14.5 }}>{s.name}</p>
-      <p style={{ fontSize: 12.5, color: 'var(--text-faint)', marginTop: 2 }}>{s.address}</p>
-      {s.upi_id && <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>UPI: {s.upi_id}</p>}
-      <p style={{ fontSize: 12, color: 'var(--brand)', marginTop: 4, fontWeight: 600 }}>
-        {s.owner_id ? 'Owner assigned' : 'No shopkeeper assigned yet'}
-      </p>
-      <p style={{ fontSize: 12, color: routeBadge.color, marginTop: 4, fontWeight: 600 }}>
-        {routeBadge.label}
-      </p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div style={{ flex: 1, marginRight: 12 }}>
+          <p style={{ fontWeight: 600, fontSize: 14.5 }}>{s.name}</p>
+          <p style={{ fontSize: 12.5, color: 'var(--text-faint)', marginTop: 2 }}>{s.address}</p>
+          {s.upi_id && <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>UPI: {s.upi_id}</p>}
+          <p style={{ fontSize: 12, color: 'var(--brand)', marginTop: 4, fontWeight: 600 }}>
+            {s.owner_id ? 'Owner assigned' : 'No shopkeeper assigned yet'}
+          </p>
+          <p style={{ fontSize: 12, color: routeBadge.color, marginTop: 4, fontWeight: 600 }}>
+            {routeBadge.label}
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button onClick={() => setEditing(true)} style={editBtnStyle} title="Edit shop">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 4 }}>
+              <path d="M12 20h9"/>
+              <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+            </svg>
+            Edit
+          </button>
+          <button onClick={handleDelete} style={deleteBtnStyle} title="Delete shop">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 4 }}>
+              <path d="M3 6h18"/>
+              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+            </svg>
+            Delete
+          </button>
+        </div>
+      </div>
 
       {!s.razorpay_account_id && (
         <button className="btn btn-secondary" style={{ marginTop: 10, fontSize: 12.5, padding: '7px 12px' }} onClick={() => setExpanded(!expanded)}>
@@ -329,12 +493,102 @@ function ShopkeepersPanel() {
 
       <h3 style={{ fontSize: 15, marginTop: 24, marginBottom: 10 }}>Shopkeeper accounts ({list.length})</h3>
       {list.map((sk) => (
-        <div key={sk.id} className="card" style={{ padding: 14, marginBottom: 8 }}>
+        <ShopkeeperCard key={sk.id} shopkeeper={sk} onChanged={load} />
+      ))}
+    </>
+  );
+}
+
+// ---------------------------------------------------------
+function ShopkeeperCard({ shopkeeper: sk, onChanged }) {
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState({ name: sk.name, email: sk.email, password: '' });
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  async function handleDelete() {
+    if (!confirm(`Are you sure you want to delete shopkeeper "${sk.name}"? This will unassign them from any shops they own.`)) return;
+    try {
+      await api.deleteShopkeeper(sk.id);
+      onChanged();
+    } catch (err) {
+      alert(err.message);
+    }
+  }
+
+  async function handleSave(e) {
+    e.preventDefault();
+    setError('');
+    setSaving(true);
+    try {
+      await api.updateShopkeeper(sk.id, {
+        name: editForm.name,
+        email: editForm.email,
+        password: editForm.password || undefined,
+      });
+      setEditing(false);
+      onChanged();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (editing) {
+    return (
+      <form onSubmit={handleSave} className="card" style={{ padding: 14, marginBottom: 8 }}>
+        <p style={{ fontWeight: 700, marginBottom: 12, fontSize: 13.5 }}>Edit Shopkeeper</p>
+        
+        <label className="label">Name</label>
+        <input className="input" required value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} style={{ marginBottom: 10 }} />
+
+        <label className="label">Email</label>
+        <input className="input" required type="email" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} style={{ marginBottom: 10 }} />
+
+        <label className="label">New password (leave blank to keep current)</label>
+        <input className="input" minLength={6} placeholder="••••••••" value={editForm.password} onChange={(e) => setEditForm({ ...editForm, password: e.target.value })} style={{ marginBottom: 10 }} />
+
+        {error && <p className="error-text">{error}</p>}
+        
+        <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+          <button className="btn btn-primary" style={{ flex: 1, padding: '8px 12px', fontSize: 13 }} disabled={saving}>
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+          <button type="button" className="btn btn-ghost" style={{ padding: '8px 12px', fontSize: 13 }} onClick={() => setEditing(false)}>
+            Cancel
+          </button>
+        </div>
+      </form>
+    );
+  }
+
+  return (
+    <div className="card" style={{ padding: 14, marginBottom: 8 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
           <p style={{ fontWeight: 600, fontSize: 14.5 }}>{sk.name}</p>
           <p style={{ fontSize: 12.5, color: 'var(--text-faint)', marginTop: 2 }}>{sk.email}</p>
         </div>
-      ))}
-    </>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button onClick={() => setEditing(true)} style={editBtnStyle} title="Edit shopkeeper">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 4 }}>
+              <path d="M12 20h9"/>
+              <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+            </svg>
+            Edit
+          </button>
+          <button onClick={handleDelete} style={deleteBtnStyle} title="Delete shopkeeper">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 4 }}>
+              <path d="M3 6h18"/>
+              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+            </svg>
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -432,3 +686,4 @@ function PayoutsPanel() {
     </>
   );
 }
+
